@@ -33,7 +33,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         chrome.tabs.sendMessage(tab.id, { action: 'executeContentScript', listName });
 
-        window.close(); // Close the popup after submitting
+        window.close(); 
       });
     } else {
       // Show an error message if the user is not on LinkedIn

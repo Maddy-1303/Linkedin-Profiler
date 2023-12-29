@@ -1,7 +1,8 @@
 let click = 2;
-const maxpage = 2;
+const maxpage = 100;
 const scrollInterval = 1200;
-const delayBeforeNextPage = 5000;
+const delayBeforeNextPage = 3000;
+const loadPage = 5000;
 
 chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     if (message.action === "executeContentScript") {
@@ -15,35 +16,36 @@ function executeContentScript(listName) {
 
     const resultsContainer = document.querySelector('#search-results-container');
 
-    if (resultsContainer) {
-        const totalScrolls = document.getElementsByClassName("artdeco-list__item pl3 pv3 ").length;
-        console.log("Total Scrolls: ", totalScrolls);
-
-        let scrollsCompleted = 0;
-
-        for (let i = 0; i < totalScrolls; i++) {
-            setTimeout(() => {
-                resultsContainer.scrollBy(0, 250);
-                console.log("Scrolled:", i + 1, "times");
-
-                scrollsCompleted++;
-
-                if (scrollsCompleted === totalScrolls) {
-                    fetchLinkedInPeople(listName);
-                }
-            }, i * scrollInterval + getRandomDelay());
-        }
-    } else {
+    if (!resultsContainer) {
         console.log("Results container not found!");
         console.error("Results container not found!");
         removeBlur(listName);
+        return;
+    }
+
+    const totalScrolls = document.querySelectorAll(".artdeco-list__item.pl3.pv3").length;
+    console.log("Total Scrolls: ", totalScrolls);
+
+    let scrollsCompleted = 0;
+
+    for (let i = 0; i < totalScrolls; i++) {
+        setTimeout(() => {
+            resultsContainer.scrollBy(0, 250);
+            console.log("Scrolled:", i + 1, "times");
+
+            scrollsCompleted++;
+
+            if (scrollsCompleted === totalScrolls) {
+                fetchLinkedInPeople(listName);
+            }
+        }, i * scrollInterval + getRandomDelay());
     }
 }
 
 function fetchLinkedInPeople(listName) {
-    const profiles = Array.from(document.querySelectorAll('.flex.flex-column'));
+    const profiles = document.querySelectorAll('.flex.flex-column');
 
-    const linkedinPeople = profiles
+    const linkedinPeople = Array.from(profiles)
         .filter(profile => {
             const name = profile.querySelector('.artdeco-entity-lockup__title span')?.textContent?.trim();
             return name !== undefined;
@@ -85,7 +87,7 @@ function fetchLinkedInPeople(listName) {
                 setTimeout(() => {
                     executeContentScript(listName);
                     click++;
-                }, delayBeforeNextPage);
+                }, loadPage);
                 console.log("Page", click);
             } else {
                 console.log("Reached Maximum Pages.");
@@ -114,7 +116,6 @@ function blurPage() {
 }
 
 function removeBlur(listName) {
-   
     document.body.style.opacity = 1;
     hideProcessingOverlay();
     const linkedinPeople = JSON.parse(localStorage.getItem('exlinkedinPeople'));
@@ -126,6 +127,7 @@ function removeBlur(listName) {
             linkedinPeople
         }
     });
+    saveDataToFile(linkedinPeople, listName);
     localStorage.removeItem('exlinkedinPeople');
 }
 
@@ -147,3 +149,39 @@ function hideProcessingOverlay() {
         processingOverlay.remove();
     }
 }
+function removeBlur(listName) {
+    document.body.style.opacity = 1;
+    hideProcessingOverlay();
+    const linkedinPeople = JSON.parse(localStorage.getItem('exlinkedinPeople'));
+    console.log('Received data in background:', { listName, linkedinPeople });
+
+    // Save data to a local file with listName
+    saveDataToFile(linkedinPeople, listName);
+
+    // Send data to the background script
+    chrome.runtime.sendMessage({
+        action: "contentToBackground",
+        data: {
+            listName,
+            linkedinPeople
+        }
+    });
+
+    // Remove local storage data
+    localStorage.removeItem('exlinkedinPeople');
+}
+function saveDataToFile(data, listName) {
+    const jsonString = JSON.stringify(data, null, 2); 
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const timestamp = new Date().toISOString().replace(/[-:]/g, ''); 
+    const filename = `${listName}_${timestamp}.json`;
+
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+}
+

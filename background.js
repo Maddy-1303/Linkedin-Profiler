@@ -26,14 +26,12 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
                 },
                 body: JSON.stringify(postData)
             })
-                .then(response => response.json())
-                .then(data => {
-
-                    if (data === 'ok') {
+                .then(response => {
+                    if (response.ok) {
                         console.log('POST request successful');
                         console.log('Received data', { listName, linkedinPeople });
                     } else {
-                        console.error('Unexpected response:', data);
+                        console.error('Unexpected response status:', response.status);
                     }
                 })
                 .catch(error => {
