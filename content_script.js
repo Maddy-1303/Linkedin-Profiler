@@ -6,13 +6,13 @@ const loadPage = 5000;
 
 chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     if (message.action === "executeContentScript") {
+        blurPage();
         executeContentScript(message.listName);
     }
 });
 
 function executeContentScript(listName) {
     console.log('List Name:', listName);
-    blurPage();
 
     const resultsContainer = document.querySelector('#search-results-container');
 
@@ -86,6 +86,7 @@ function fetchLinkedInPeople(listName) {
                 nextPageButton.click();
                 setTimeout(() => {
                     executeContentScript(listName);
+                    
                     click++;
                 }, loadPage);
                 console.log("Page", click);
@@ -112,24 +113,10 @@ function getRandomDelay() {
 
 function blurPage() {
     showProcessingOverlay();
-    document.body.style.opacity = 0.3;
+    
 }
 
-function removeBlur(listName) {
-    document.body.style.opacity = 1;
-    hideProcessingOverlay();
-    const linkedinPeople = JSON.parse(localStorage.getItem('exlinkedinPeople'));
-    console.log('Received data in background:', { listName, linkedinPeople });
-    chrome.runtime.sendMessage({
-        action: "contentToBackground",
-        data: {
-            listName,
-            linkedinPeople
-        }
-    });
-    saveDataToFile(linkedinPeople, listName);
-    localStorage.removeItem('exlinkedinPeople');
-}
+
 
 function showProcessingOverlay() {
     const processingOverlay = document.createElement('div');
@@ -150,15 +137,13 @@ function hideProcessingOverlay() {
     }
 }
 function removeBlur(listName) {
-    document.body.style.opacity = 1;
-    hideProcessingOverlay();
+   
+
     const linkedinPeople = JSON.parse(localStorage.getItem('exlinkedinPeople'));
     console.log('Received data in background:', { listName, linkedinPeople });
 
-    // Save data to a local file with listName
     saveDataToFile(linkedinPeople, listName);
 
-    // Send data to the background script
     chrome.runtime.sendMessage({
         action: "contentToBackground",
         data: {
@@ -167,8 +152,8 @@ function removeBlur(listName) {
         }
     });
 
-    // Remove local storage data
     localStorage.removeItem('exlinkedinPeople');
+    hideProcessingOverlay();
 }
 function saveDataToFile(data, listName) {
     const jsonString = JSON.stringify(data, null, 2); 
