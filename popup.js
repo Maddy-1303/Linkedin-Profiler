@@ -1,26 +1,48 @@
-document.getElementById("openProfileBtn").addEventListener("click", function () {
-    // Get the active tab
-    chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-        const url = tabs[0].url;
-        console.log(url);
+document.addEventListener('DOMContentLoaded', function () {
+  const listForm = document.getElementById('listForm');
+  const errorMessageContainer = document.getElementById('errorMessage');
+  const submitBtn = document.getElementById('submitButton');
 
-        const urlRegex = /^https:\/\/www\.linkedin\.com\//;
-        if (urlRegex.test(url)) {
+  // Initially hide the form and error message
+  listForm.style.display = 'none';
+  errorMessageContainer.style.display = 'none';
+
+  chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+    const tab = tabs[0];
+    if (isLinkedInURL(tab.url)) {
+      // Show the form if the user is on LinkedIn
+      listForm.style.display = 'block';
+
+      // Hide the submit button initially
+      submitBtn.style.display = 'none';
+
+      listForm.addEventListener('input', function () {
+        const listName = document.getElementById('listName').value.trim();
         
-            chrome.tabs.sendMessage(tabs[0].id, { action: "executeContentScript" });
+        // Show the submit button only if the listName is not empty
+        if (listName) {
+          submitBtn.style.display = 'block';
         } else {
-            displayMessage("This is not a valid LinkedIn URL.");
+          submitBtn.style.display = 'none';
         }
-    });
+      });
+
+      listForm.addEventListener('submit', function (event) {
+        event.preventDefault();
+        const listName = document.getElementById('listName').value.trim();
+
+        chrome.tabs.sendMessage(tab.id, { action: 'executeContentScript', listName });
+
+        window.close(); // Close the popup after submitting
+      });
+    } else {
+      // Show an error message if the user is not on LinkedIn
+      errorMessageContainer.style.display = 'block';
+      errorMessageContainer.textContent = 'You are not on LinkedIn.';
+    }
+  });
+
+  function isLinkedInURL(url) {
+    return /^https:\/\/www\.linkedin\.com\//.test(url);
+  }
 });
-
-function displayMessage(message) {
-    // Display a message in the popup
-    const errorMessageContainer = document.getElementById("errorMessage");
-    errorMessageContainer.textContent = message;
-
-    // Clear the message after a short delay
-    setTimeout(() => {
-        errorMessageContainer.textContent = '';
-    }, 3000);
-}

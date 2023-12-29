@@ -1,18 +1,23 @@
+let click = 2;
+const maxpage = 2;
+const scrollInterval = 1200;
+const delayBeforeNextPage = 5000;
+
 chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     if (message.action === "executeContentScript") {
-        executeContentScript();
+        executeContentScript(message.listName);
     }
 });
 
-function executeContentScript() {
+function executeContentScript(listName) {
+    console.log('List Name:', listName);
+    blurPage();
+
     const resultsContainer = document.querySelector('#search-results-container');
 
     if (resultsContainer) {
-        console.log("Results container found:", resultsContainer);
-
-        const scrollInterval = 1200; // Set the interval between scrolls in milliseconds
         const totalScrolls = document.getElementsByClassName("artdeco-list__item pl3 pv3 ").length;
-        console.log(totalScrolls); // Set the total number of scrolls
+        console.log("Total Scrolls: ", totalScrolls);
 
         let scrollsCompleted = 0;
 
@@ -24,22 +29,22 @@ function executeContentScript() {
                 scrollsCompleted++;
 
                 if (scrollsCompleted === totalScrolls) {
-                    // All scrolls have completed, now execute LinkedIn people fetching code
-                    fetchLinkedInPeople();
+                    fetchLinkedInPeople(listName);
                 }
             }, i * scrollInterval + getRandomDelay());
         }
     } else {
+        console.log("Results container not found!");
         console.error("Results container not found!");
+        removeBlur(listName);
     }
 }
 
-function fetchLinkedInPeople() {
+function fetchLinkedInPeople(listName) {
     const profiles = Array.from(document.querySelectorAll('.flex.flex-column'));
 
     const linkedinPeople = profiles
         .filter(profile => {
-            // Filter out profiles with undefined values
             const name = profile.querySelector('.artdeco-entity-lockup__title span')?.textContent?.trim();
             return name !== undefined;
         })
@@ -47,10 +52,12 @@ function fetchLinkedInPeople() {
             const profileLink = profile.querySelector('.artdeco-entity-lockup__title a')?.getAttribute('href');
             const name = profile.querySelector('.artdeco-entity-lockup__title span')?.textContent.trim();
             const photoUrl = profile.querySelector('.artdeco-entity-lockup__image img')?.getAttribute('src');
+            const titleElement = profile.querySelector('.artdeco-entity-lockup__subtitle span[data-anonymize="title"]');
+            const title = titleElement?.textContent?.trim();
             const orgLinkElement = profile.querySelector('.artdeco-entity-lockup__subtitle a');
             const organizationName = orgLinkElement?.textContent.trim();
             const organizationLinkedInUid = orgLinkElement?.getAttribute('href')?.match(/\/company\/(\d+)/)?.[1];
-            const title = profile.querySelector('.artdeco-entity-lockup__highlight-keyword')?.textContent.trim();
+
             const locationElement = profile.querySelector('.artdeco-entity-lockup__caption');
             const presentRawAddress = locationElement?.textContent.trim();
 
@@ -65,51 +72,78 @@ function fetchLinkedInPeople() {
             };
         });
 
-    // Display the extracted data in the console
     console.log("LinkedIn people captured:", linkedinPeople);
 
-    // Check if there is existing data in localStorage
-    const existingData = localStorage.getItem('exlinkedinPeople');
+    updateLocalStorage(linkedinPeople);
 
-    if (existingData) {
-        // Merge the existing data with the new data
-        const mergedData = JSON.stringify([...JSON.parse(existingData), ...linkedinPeople]);
-        localStorage.setItem('exlinkedinPeople', mergedData);
-    } else {
-        // Save the new data to localStorage
-        const newData = JSON.stringify(linkedinPeople);
-        localStorage.setItem('exlinkedinPeople', newData);
-    }
-
-    // Check if there's a next page button
     const nextPageButton = document.querySelector('.artdeco-pagination__button--next');
 
     if (nextPageButton && !nextPageButton.hasAttribute('disabled')) {
-        // If there is a next page and it's not disabled, click on it after a 5-second delay
-      
         setTimeout(() => {
-          
-            if (click < 100) {
+            if (click < maxpage) {
                 nextPageButton.click();
-               
-                // Continue scrolling on the next page after 5 seconds
                 setTimeout(() => {
-                    executeContentScript();
-                    click = click + 1;
-                }, 5000);
-    ;
+                    executeContentScript(listName);
+                    click++;
+                }, delayBeforeNextPage);
                 console.log("Page", click);
             } else {
-                console.log("No more clicks.");
+                console.log("Reached Maximum Pages.");
+                removeBlur(listName);
             }
-        }, 5000);
+        }, delayBeforeNextPage);
     } else {
         console.log("No more pages to load.");
+        removeBlur(listName);
     }
 }
- 
+
+function updateLocalStorage(data) {
+    const existingData = JSON.parse(localStorage.getItem('exlinkedinPeople')) || [];
+    const mergedData = JSON.stringify([...existingData, ...data]);
+    localStorage.setItem('exlinkedinPeople', mergedData);
+}
+
 function getRandomDelay() {
-    // Returns a random delay between 0 and 1000 milliseconds
     return Math.floor(Math.random() * 1000);
 }
-let click = 1;
+
+function blurPage() {
+    showProcessingOverlay();
+    document.body.style.opacity = 0.3;
+}
+
+function removeBlur(listName) {
+   
+    document.body.style.opacity = 1;
+    hideProcessingOverlay();
+    const linkedinPeople = JSON.parse(localStorage.getItem('exlinkedinPeople'));
+    console.log('Received data in background:', { listName, linkedinPeople });
+    chrome.runtime.sendMessage({
+        action: "contentToBackground",
+        data: {
+            listName,
+            linkedinPeople
+        }
+    });
+    localStorage.removeItem('exlinkedinPeople');
+}
+
+function showProcessingOverlay() {
+    const processingOverlay = document.createElement('div');
+    processingOverlay.classList.add('processing-overlay');
+
+    const processingText = document.createElement('div');
+    processingText.classList.add('processing-text');
+    processingText.textContent = 'Processing...';
+
+    processingOverlay.appendChild(processingText);
+    document.body.appendChild(processingOverlay);
+}
+
+function hideProcessingOverlay() {
+    const processingOverlay = document.querySelector('.processing-overlay');
+    if (processingOverlay) {
+        processingOverlay.remove();
+    }
+}
