@@ -1,12 +1,14 @@
 let click = 2;
 const maxpage = 100;
 const scrollInterval = 1200;
-const delayBeforeNextPage = 3000;
+const delayBeforeNextPage = 5000;
 const loadPage = 5000;
 
 chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     if (message.action === "executeContentScript") {
         blurPage();
+        const resultsContainer = document.querySelector('#search-results-container');
+        resultsContainer.scrollTop = 0;
         executeContentScript(message.listName);
     }
 });
@@ -15,7 +17,6 @@ function executeContentScript(listName) {
     console.log('List Name:', listName);
 
     const resultsContainer = document.querySelector('#search-results-container');
-    resultsContainer.scrollTop = 0;
     if (!resultsContainer) {
         console.log("Results container not found!");
         console.error("Results container not found!");
