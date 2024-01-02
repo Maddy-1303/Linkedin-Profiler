@@ -6,6 +6,10 @@ const loadPage = 7000;
 
 chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     if (message.action === "executeContentScript") {
+        if(localStorage.getItem('exlinkedinPeople')){
+            console.log("localstorage cleared");
+            localStorage.removeItem('exlinkedinPeople');
+        }
         blurPage();
         const resultsContainer = document.querySelector('#search-results-container');
         resultsContainer.scrollTop = 0;
@@ -153,7 +157,7 @@ function removeBlur(listName) {
         }
     });
 
-    localStorage.removeItem('exlinkedinPeople');
+   
     hideProcessingOverlay();
 }
 function saveDataToFile(data, listName) {
