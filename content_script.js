@@ -1,8 +1,8 @@
 let click = 2;
 const maxpage = 100;
-const scrollInterval = 1200;
-const delayBeforeNextPage = 5000;
-const loadPage = 5000;
+const scrollInterval = 2000;
+const delayBeforeNextPage = 7000;
+const loadPage = 7000;
 
 chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     if (message.action === "executeContentScript") {
